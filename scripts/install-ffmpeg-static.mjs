@@ -8,6 +8,13 @@ function sleep(ms) {
 }
 
 async function main() {
+	if (process.platform === "win32" && process.arch === "arm64") {
+		console.log(
+			"[ffmpeg-static] ffmpeg-static does not publish a Windows arm64 binary; the packaged app will fall back to a system FFmpeg.",
+		);
+		return;
+	}
+
 	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
 		const result = spawnSync(process.execPath, ["node_modules/ffmpeg-static/install.js"], {
 			stdio: "inherit",

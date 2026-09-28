@@ -34,6 +34,13 @@ if (process.platform !== "win32") {
 	process.exit(0);
 }
 
+if (process.arch === "arm64" || process.env.WINDOWS_TARGET_ARCH?.trim() === "arm64") {
+	console.log(
+		"[build-nvidia-cuda-compositor] Skipping NVIDIA CUDA compositor build: the helper is only published for win32-x64.",
+	);
+	process.exit(0);
+}
+
 if (!existsSync(path.join(sourceDir, "CMakeLists.txt"))) {
 	console.error("[build-nvidia-cuda-compositor] CMakeLists.txt not found at", sourceDir);
 	process.exit(1);

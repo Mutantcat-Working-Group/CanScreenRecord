@@ -421,13 +421,23 @@ jobs:
           path: release-assets/merged/latest-mac.yml
           if-no-files-found: error
 
-  build-windows-x64:
-    name: Build Windows x64
+  build-windows:
+    name: Build Windows ${{ matrix.arch }}
     needs: prepare-release
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      WINDOWS_TARGET_ARCH: ${{ matrix.arch }}
+      WHISPER_RUNTIME_ARCHS: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -489,6 +499,7 @@ jobs:
         run: node scripts/install-ffmpeg-static.mjs
 
       - name: Verify bundled FFmpeg binary
+        if: matrix.arch != 'arm64'
         run: |
           node -e "const fs=require('node:fs'); const ffmpeg=require('ffmpeg-static'); if (typeof ffmpeg !== 'string' || !fs.existsSync(ffmpeg)) { throw new Error('Bundled ffmpeg-static binary is missing: ' + ffmpeg); } console.log('Using bundled ffmpeg binary: ' + ffmpeg);"
 
@@ -502,13 +513,13 @@ jobs:
       - name: Install app dependencies
         run: npx electron-builder install-app-deps
 
-      - name: Build Windows x64
+      - name: Build Windows ${{ matrix.arch }}
         shell: pwsh
         run: |
           npm run build:platform-native-helpers
           npx tsc
           npx vite build
-          npx electron-builder --win dir --x64 --publish never
+          npx electron-builder --win dir --${{ matrix.arch }} --publish never
 
       # The unpacked bundle is packed first so the application can be signed before it
       # is wrapped in the installer, otherwise only the outer setup file would be signed.
@@ -517,8 +528,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not $env:PFX_PATH -or -not $env:SIGNTOOL_PATH) { throw 'Windows signing was not configured' }
-          $targets = @(Get-ChildItem -Path 'release/win-unpacked' -Filter '*.exe' -Recurse | ForEach-Object { $_.FullName })
-          if ($targets.Count -eq 0) { throw 'release/win-unpacked contains no .exe to sign' }
+          $unpackedDir = "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}"
+          $targets = @(Get-ChildItem -Path $unpackedDir -Filter '*.exe' -Recurse | ForEach-Object { $_.FullName })
+          if ($targets.Count -eq 0) { throw "$unpackedDir contains no .exe to sign" }
           foreach ($t in $targets) {
             & $env:SIGNTOOL_PATH sign /fd SHA256 /f $env:PFX_PATH /p $env:SIGN_PASSWORD /d 'CanScreenRecord' "$t"
             Write-Output "signed $(Split-Path -Leaf $t)"
@@ -527,7 +539,7 @@ jobs:
       - name: Build Windows installer
         shell: pwsh
         run: |
-          npx electron-builder --win nsis --x64 --publish never --prepackaged release/win-unpacked
+          npx electron-builder --win nsis --${{ matrix.arch }} --publish never --prepackaged "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}"
 
       - name: Sign Windows installer
         shell: pwsh
@@ -535,7 +547,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if (-not $env:PFX_PATH -or -not $env:SIGNTOOL_PATH) { throw 'Windows signing was not configured' }
           $installer = Get-ChildItem -Path 'release' -Filter '*.exe' -File |
-            Where-Object { $_.FullName -notlike '*win-unpacked*' } |
+            Where-Object { $_.FullName -notmatch '[\\/]win[^\\/]*-unpacked[\\/]' } |
             Select-Object -First 1
           if (-not $installer) { throw 'no installer was found in release' }
           & $env:SIGNTOOL_PATH sign /fd SHA256 /f $env:PFX_PATH /p $env:SIGN_PASSWORD /d 'CanScreenRecord Installer' "$($installer.FullName)"
@@ -545,10 +557,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $appExe = Get-ChildItem -Path 'release/win-unpacked' -Filter 'CanScreenRecord.exe' -Recurse | Select-Object -First 1
+          $unpackedDir = "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}"
+          $appExe = Get-ChildItem -Path $unpackedDir -Filter 'CanScreenRecord.exe' -Recurse | Select-Object -First 1
           if (-not $appExe) { throw 'the packaged CanScreenRecord.exe was not found' }
           $installer = Get-ChildItem -Path 'release' -Filter '*.exe' -File |
-            Where-Object { $_.FullName -notlike '*win-unpacked*' } |
+            Where-Object { $_.FullName -notmatch '[\\/]win[^\\/]*-unpacked[\\/]' } |
             Select-Object -First 1
           if (-not $installer) { throw 'no installer was found in release' }
           foreach ($file in @($appExe.FullName, $installer.FullName)) {
@@ -557,26 +570,99 @@ jobs:
             Write-Output "verified $file signed by $($signature.SignerCertificate.Subject)"
           }
 
-      - name: Smoke test packaged Windows x64 paths
+      - name: Smoke test packaged Windows paths
+        env:
+          PACKAGED_SMOKE_ARCH_TAGS: win32-${{ matrix.arch }}
         run: npm run smoke:packaged-binaries
 
-      - name: Generate Windows x64 artifact checksums
-        run: npm run checksums:release -- SHA256SUMS-windows-x64.txt
+      - name: Generate Windows ${{ matrix.arch }} artifact checksums
+        run: npm run checksums:release -- SHA256SUMS-windows-${{ matrix.arch }}.txt
 
-      - name: Attest Windows x64 artifacts
+      - name: Attest Windows ${{ matrix.arch }} artifacts
         uses: actions/attest@v4
         with:
-          subject-checksums: release/SHA256SUMS-windows-x64.txt
+          subject-checksums: release/SHA256SUMS-windows-${{ matrix.arch }}.txt
 
-      - name: Upload Windows x64 artifacts
+      - name: Upload Windows ${{ matrix.arch }} artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x64-release
+          name: windows-${{ matrix.arch }}-release
           path: |
             release/*.exe
             release/*.blockmap
             release/latest*.yml
             release/SHA256SUMS*.txt
+          if-no-files-found: error
+
+  merge-windows-update-metadata:
+    name: Merge Windows update metadata
+    needs:
+      - prepare-release
+      - build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x64-release
+          path: release-assets/windows-x64
+
+      - name: Download Windows arm64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-arm64-release
+          path: release-assets/windows-arm64
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyYAML
+        run: python -m pip install pyyaml
+
+      - name: Merge latest.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/merged
+          python <<'PY'
+          from pathlib import Path
+          import yaml
+
+          x64_info = yaml.safe_load(Path('release-assets/windows-x64/latest.yml').read_text())
+          arm64_info = yaml.safe_load(Path('release-assets/windows-arm64/latest.yml').read_text())
+
+          merged_files = []
+          seen_urls = set()
+          for info in (x64_info, arm64_info):
+            for file_info in info.get('files', []):
+              url = file_info.get('url')
+              if url and url not in seen_urls:
+                seen_urls.add(url)
+                merged_files.append(file_info)
+
+          if not merged_files:
+            raise SystemExit('No Windows update files found to merge.')
+
+          preferred = next((item for item in merged_files if 'x64' in item.get('url', '')), merged_files[0])
+          merged = dict(x64_info)
+          merged['files'] = merged_files
+          merged['path'] = preferred.get('url', merged.get('path'))
+          merged['sha512'] = preferred.get('sha512', merged.get('sha512'))
+          if not merged.get('releaseDate') and arm64_info.get('releaseDate'):
+            merged['releaseDate'] = arm64_info['releaseDate']
+
+          Path('release-assets/merged/latest.yml').write_text(
+            yaml.safe_dump(merged, sort_keys=False)
+          )
+          PY
+
+      - name: Upload merged latest.yml artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-merged-metadata
+          path: release-assets/merged/latest.yml
           if-no-files-found: error
 
   build-linux-x64:
@@ -660,12 +746,14 @@ jobs:
       - build-macos-x64
       - build-macos-arm64
       - merge-macos-update-metadata
-      - build-windows-x64
+      - build-windows
+      - merge-windows-update-metadata
       - build-linux-x64
     if: |
       always() &&
       needs.prepare-release.result == 'success' &&
-      needs.build-windows-x64.result == 'success' &&
+      needs.build-windows.result == 'success' &&
+      needs.merge-windows-update-metadata.result == 'success' &&
       needs.build-linux-x64.result == 'success' &&
       (
         needs.prepare-release.outputs.release_scope == 'windows-linux' ||
@@ -704,6 +792,18 @@ jobs:
           name: windows-x64-release
           path: release-assets/windows-x64
 
+      - name: Download Windows arm64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-arm64-release
+          path: release-assets/windows-arm64
+
+      - name: Download merged Windows metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-merged-metadata
+          path: release-assets/windows-merged
+
       - name: Download Linux x64 artifacts
         uses: actions/download-artifact@v4
         with:
@@ -727,7 +827,7 @@ jobs:
           fi
 
           required_metadata=(
-            release-assets/windows-x64/latest.yml
+            release-assets/windows-merged/latest.yml
             release-assets/linux-x64/latest-linux.yml
           )
 
@@ -743,10 +843,10 @@ jobs:
           done
 
           if [ "$IS_PRERELEASE" = "true" ]; then
-            cp release-assets/windows-x64/latest.yml release-assets/windows-x64/beta.yml
+            cp release-assets/windows-merged/latest.yml release-assets/windows-merged/beta.yml
             cp release-assets/linux-x64/latest-linux.yml release-assets/linux-x64/beta-linux.yml
             update_metadata=(
-              release-assets/windows-x64/beta.yml
+              release-assets/windows-merged/beta.yml
               release-assets/linux-x64/beta-linux.yml
             )
 
@@ -756,7 +856,7 @@ jobs:
             fi
           else
             update_metadata=(
-              release-assets/windows-x64/latest.yml
+              release-assets/windows-merged/latest.yml
               release-assets/linux-x64/latest-linux.yml
             )
 
@@ -768,6 +868,8 @@ jobs:
           assets=(
             release-assets/windows-x64/*.exe
             release-assets/windows-x64/*.blockmap
+            release-assets/windows-arm64/*.exe
+            release-assets/windows-arm64/*.blockmap
             release-assets/linux-x64/*.AppImage
             release-assets/linux-x64/*.blockmap
           )

@@ -15,15 +15,23 @@ import {
 const projectRoot = process.cwd();
 const sourceDir = path.join(projectRoot, "electron", "native", "cursor-monitor");
 const buildDir = path.join(sourceDir, "build");
+const targetArch =
+	process.env.WINDOWS_TARGET_ARCH?.trim() === "arm64" ||
+	process.env.WINDOWS_TARGET_ARCH?.trim() === "x64"
+		? process.env.WINDOWS_TARGET_ARCH.trim()
+		: process.arch === "arm64"
+			? "arm64"
+			: "x64";
 const bundledDir = path.join(
 	projectRoot,
 	"electron",
 	"native",
 	"bin",
-	process.arch === "arm64" ? "win32-arm64" : "win32-x64",
+	`win32-${targetArch}`,
 );
 const bundledExePath = path.join(bundledDir, "cursor-monitor.exe");
 const helperId = "cursor-monitor";
+const generatorArch = targetArch === "arm64" ? "ARM64" : "x64";
 
 if (process.platform !== "win32") {
 	console.log("[build-cursor-monitor] Skipping: host platform is not Windows.");
@@ -125,7 +133,9 @@ try {
 		prefix: "build-cursor-monitor",
 		clearCache: clearCmakeCache,
 		configure: (generator, toolset) =>
-			execSync(`${cmake} .. -G "${generator}" -A x64${toolset ? ` -T ${toolset}` : ""}`, {
+			execSync(
+				`${cmake} .. -G "${generator}" -A ${generatorArch}${toolset ? ` -T ${toolset}` : ""}`,
+				{
 				cwd: buildDir,
 				stdio: "inherit",
 				timeout: 120000,

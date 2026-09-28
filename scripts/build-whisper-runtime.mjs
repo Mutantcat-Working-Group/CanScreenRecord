@@ -102,16 +102,17 @@ function getTargetConfigs() {
 	const archTag = getNativeArchTag(process.platform, arch);
 
 	if (process.platform === "win32") {
-		return [
-			{
+		return getRequestedArchitectures("win32").map((targetArch) => {
+			const targetArchTag = getNativeArchTag("win32", targetArch);
+			return {
 				platform: "win32",
-				arch,
-				archTag,
-				buildRoot: path.join(cacheRoot, `build-${archTag}`),
-				outputDir: path.join(nativeRoot, "bin", archTag),
-				configureArgs: ["-A", arch === "arm64" ? "ARM64" : "x64"],
-			},
-		];
+				arch: targetArch,
+				archTag: targetArchTag,
+				buildRoot: path.join(cacheRoot, `build-${targetArchTag}`),
+				outputDir: path.join(nativeRoot, "bin", targetArchTag),
+				configureArgs: ["-A", targetArch === "arm64" ? "ARM64" : "x64"],
+			};
+		});
 	}
 
 	if (process.platform === "linux") {

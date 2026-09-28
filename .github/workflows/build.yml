@@ -12,9 +12,19 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      WINDOWS_TARGET_ARCH: ${{ matrix.arch }}
+      WHISPER_RUNTIME_ARCHS: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,9 +38,10 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Install bundled FFmpeg binary
-        run: node node_modules/ffmpeg-static/install.js
+        run: node scripts/install-ffmpeg-static.mjs
 
       - name: Verify bundled FFmpeg binary
+        if: matrix.arch != 'arm64'
         run: |
           node -e "const fs=require('node:fs'); const ffmpeg=require('ffmpeg-static'); if (typeof ffmpeg !== 'string' || !fs.existsSync(ffmpeg)) { throw new Error('Bundled ffmpeg-static binary is missing: ' + ffmpeg); } console.log('Using bundled ffmpeg binary: ' + ffmpeg);"
 
@@ -83,7 +94,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npx vite build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npx electron-builder --win dir --x64 --publish never
+          npx electron-builder --win dir --${{ matrix.arch }} --publish never
 
       # The unpacked bundle is packed first so the application can be signed before it
       # is wrapped in the installer, otherwise only the outer setup file would be signed.
@@ -92,8 +103,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not $env:PFX_PATH -or -not $env:SIGNTOOL_PATH) { throw 'Windows signing was not configured' }
-          $targets = @(Get-ChildItem -Path 'release/win-unpacked' -Filter '*.exe' -Recurse | ForEach-Object { $_.FullName })
-          if ($targets.Count -eq 0) { throw 'release/win-unpacked contains no .exe to sign' }
+          $unpackedDir = "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}"
+          $targets = @(Get-ChildItem -Path $unpackedDir -Filter '*.exe' -Recurse | ForEach-Object { $_.FullName })
+          if ($targets.Count -eq 0) { throw "$unpackedDir contains no .exe to sign" }
           foreach ($t in $targets) {
             & $env:SIGNTOOL_PATH sign /fd SHA256 /f $env:PFX_PATH /p $env:SIGN_PASSWORD /d 'CanScreenRecord' "$t"
             Write-Output "signed $(Split-Path -Leaf $t)"
@@ -102,7 +114,7 @@ jobs:
       - name: Build Windows installer
         shell: pwsh
         run: |
-          npx electron-builder --win nsis --x64 --publish never --prepackaged release/win-unpacked
+          npx electron-builder --win nsis --${{ matrix.arch }} --publish never --prepackaged "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}"
 
       - name: Sign Windows installer
         shell: pwsh
@@ -110,7 +122,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if (-not $env:PFX_PATH -or -not $env:SIGNTOOL_PATH) { throw 'Windows signing was not configured' }
           $installer = Get-ChildItem -Path 'release' -Filter '*.exe' -File |
-            Where-Object { $_.FullName -notlike '*win-unpacked*' } |
+            Where-Object { $_.FullName -notmatch '[\\/]win[^\\/]*-unpacked[\\/]' } |
             Select-Object -First 1
           if (-not $installer) { throw 'no installer was found in release' }
           & $env:SIGNTOOL_PATH sign /fd SHA256 /f $env:PFX_PATH /p $env:SIGN_PASSWORD /d 'CanScreenRecord Installer' "$($installer.FullName)"
@@ -120,10 +132,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $appExe = Get-ChildItem -Path 'release/win-unpacked' -Filter 'CanScreenRecord.exe' -Recurse | Select-Object -First 1
+          $appExe = Get-ChildItem -Path "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}" -Filter 'CanScreenRecord.exe' -Recurse | Select-Object -First 1
           if (-not $appExe) { throw 'the packaged CanScreenRecord.exe was not found' }
           $installer = Get-ChildItem -Path 'release' -Filter '*.exe' -File |
-            Where-Object { $_.FullName -notlike '*win-unpacked*' } |
+            Where-Object { $_.FullName -notmatch '[\\/]win[^\\/]*-unpacked[\\/]' } |
             Select-Object -First 1
           if (-not $installer) { throw 'no installer was found in release' }
           foreach ($file in @($appExe.FullName, $installer.FullName)) {
@@ -133,20 +145,22 @@ jobs:
           }
 
       - name: Smoke test packaged Windows paths
+        env:
+          PACKAGED_SMOKE_ARCH_TAGS: win32-${{ matrix.arch }}
         run: npm run smoke:packaged-binaries
 
       - name: Generate Windows artifact checksums
-        run: npm run checksums:release -- SHA256SUMS-windows.txt
+        run: npm run checksums:release -- SHA256SUMS-windows-${{ matrix.arch }}.txt
 
       - name: Attest Windows artifacts
         uses: actions/attest@v4
         with:
-          subject-checksums: release/SHA256SUMS-windows.txt
+          subject-checksums: release/SHA256SUMS-windows-${{ matrix.arch }}.txt
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x64-release
+          name: windows-${{ matrix.arch }}-release
           path: |
             release/*.exe
             release/*.blockmap
@@ -187,7 +201,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Install bundled FFmpeg binary
-        run: node node_modules/ffmpeg-static/install.js
+        run: node scripts/install-ffmpeg-static.mjs
 
       - name: Verify bundled FFmpeg binary
         run: |
@@ -270,7 +284,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Install bundled FFmpeg binary
-        run: node node_modules/ffmpeg-static/install.js
+        run: node scripts/install-ffmpeg-static.mjs
 
       - name: Verify bundled FFmpeg binary
         run: |

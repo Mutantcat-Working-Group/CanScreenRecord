@@ -13,7 +13,7 @@ Edit [`announcements.json`](../announcements.json) on the `main` branch to publi
 	},
 	"announcements": [
 		{
-			"id": "canscreenrecord-1.4-release",
+			"id": "canscreenrecord-1.0.20260928-release",
 			"title": "A faster CanScreenRecord is here",
 			"body": "Exports are faster and cursor motion is smoother. Thanks for using CanScreenRecord!",
 			"presentation": "popup",
@@ -31,11 +31,11 @@ Edit [`announcements.json`](../announcements.json) on the `main` branch to publi
 			},
 			"startsAt": "2026-09-01T00:00:00Z",
 			"endsAt": "2026-10-01T00:00:00Z",
-			"minVersion": "1.4.0",
+			"minVersion": "1.0.20260928",
 			"media": {
 				"type": "image",
-				"url": "https://example.com/canscreenrecord-1.4-banner.jpg",
-				"alt": "CanScreenRecord 1.4 feature preview"
+				"url": "https://example.com/canscreenrecord-1.0.20260928-banner.jpg",
+				"alt": "CanScreenRecord 1.0.20260928 feature preview"
 			},
 			"action": {
 				"label": "See what changed",

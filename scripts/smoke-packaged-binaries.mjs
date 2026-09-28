@@ -215,6 +215,13 @@ function getExpectedNativeHelperFiles(archTag) {
 }
 
 function verifyFfmpeg(unpackedRoot) {
+	if (process.platform === "win32" && process.arch === "arm64") {
+		console.log(
+			"[packaged-smoke] Skipping packaged FFmpeg check: ffmpeg-static does not publish a win32-arm64 binary and the app falls back to a system FFmpeg.",
+		);
+		return;
+	}
+
 	const binaryName = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
 	const ffmpegPath = path.join(unpackedRoot, "node_modules", "ffmpeg-static", binaryName);
 
