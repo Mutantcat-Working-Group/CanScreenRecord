@@ -354,8 +354,6 @@ Areas where help is especially useful:
 
 Please keep pull requests focused, test recording/edit/export flows, and avoid unrelated refactors.
 
-See `CONTRIBUTING.md` for guidelines.
-
 ---
 
 # Community

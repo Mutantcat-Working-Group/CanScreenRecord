@@ -29,7 +29,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           source: en
           lang: zh
-          files: "*.md;README.md;CONTRIBUTING.md;TRANSLATION_GUIDE.md;CLAUDE.md"
+          files: "*.md;README.md;TRANSLATION_GUIDE.md;CLAUDE.md"
           filename_template: "{{ base }}.zh-CN{{ ext }}"
 
       - uses: stefanzweifel/git-auto-commit-action@v5

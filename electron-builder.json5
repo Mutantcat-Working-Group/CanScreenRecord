@@ -40,7 +40,6 @@
     "!preview*.png",
     "!*.md",
     "!README.md",
-    "!CONTRIBUTING.md",
     "!LICENSE"
   ],
   "extraResources": [
