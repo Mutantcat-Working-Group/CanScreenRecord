@@ -1,0 +1,332 @@
+
+name: Build Electron App
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  build-windows:
+    runs-on: ${{ matrix.runner }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      WINDOWS_TARGET_ARCH: ${{ matrix.arch }}
+      WHISPER_RUNTIME_ARCHS: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install bundled FFmpeg binary
+        run: node scripts/install-ffmpeg-static.mjs
+
+      - name: Verify bundled FFmpeg binary
+        if: matrix.arch != 'arm64'
+        run: |
+          node -e "const fs=require('node:fs'); const ffmpeg=require('ffmpeg-static'); if (typeof ffmpeg !== 'string' || !fs.existsSync(ffmpeg)) { throw new Error('Bundled ffmpeg-static binary is missing: ' + ffmpeg); } console.log('Using bundled ffmpeg binary: ' + ffmpeg);"
+
+      - name: Install app dependencies
+        run: npx electron-builder install-app-deps
+
+      - name: Configure Windows signing
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_P12_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_P12_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pfx = Join-Path $env:RUNNER_TEMP 'mutantcat-code-signing.pfx'
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_P12_BASE64) -or [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD)) {
+            Write-Warning 'No Windows signing certificate is configured, falling back to a self-signed certificate.'
+            $password = 'mutantcat'
+            $cert = New-SelfSignedCertificate `
+              -Subject 'CN=Mutantcat Working Group, O=Mutantcat Working Group, C=CN' `
+              -CertStoreLocation 'Cert:\CurrentUser\My' `
+              -KeyUsage DigitalSignature `
+              -Type CodeSigningCert `
+              -KeyExportPolicy Exportable `
+              -KeyLength 2048 `
+              -HashAlgorithm SHA256 `
+              -NotAfter (Get-Date).AddYears(10)
+            Export-PfxCertificate -Cert $cert -FilePath $pfx -Password (ConvertTo-SecureString -String $password -Force -AsPlainText) | Out-Null
+          } else {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_P12_BASE64))
+            $password = $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD
+          }
+
+          $signtool = $null
+          foreach ($kit in (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory | Sort-Object Name -Descending)) {
+            $candidate = Join-Path $kit.FullName 'x64\signtool.exe'
+            if (Test-Path $candidate) { $signtool = $candidate; break }
+          }
+          if (-not $signtool) { throw 'signtool.exe was not found in the Windows SDK' }
+
+          Add-Content -Path $env:GITHUB_ENV -Value "PFX_PATH=$pfx"
+          Add-Content -Path $env:GITHUB_ENV -Value "SIGN_PASSWORD=$password"
+          Add-Content -Path $env:GITHUB_ENV -Value "SIGNTOOL_PATH=$signtool"
+
+      - name: Build Windows app
+        shell: pwsh
+        run: |
+          npm run build:platform-native-helpers
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx tsc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx vite build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx electron-builder --win dir --${{ matrix.arch }} --publish never
+
+      # The unpacked bundle is packed first so the application can be signed before it
+      # is wrapped in the installer, otherwise only the outer setup file would be signed.
+      - name: Sign Windows application binaries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:PFX_PATH -or -not $env:SIGNTOOL_PATH) { throw 'Windows signing was not configured' }
+          $unpackedDir = "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}"
+          $targets = @(Get-ChildItem -Path $unpackedDir -Filter '*.exe' -Recurse | ForEach-Object { $_.FullName })
+          if ($targets.Count -eq 0) { throw "$unpackedDir contains no .exe to sign" }
+          foreach ($t in $targets) {
+            & $env:SIGNTOOL_PATH sign /fd SHA256 /f $env:PFX_PATH /p $env:SIGN_PASSWORD /d 'CanScreenRecord' "$t"
+            Write-Output "signed $(Split-Path -Leaf $t)"
+          }
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          npx electron-builder --win nsis --${{ matrix.arch }} --publish never --prepackaged "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}"
+
+      - name: Sign Windows installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:PFX_PATH -or -not $env:SIGNTOOL_PATH) { throw 'Windows signing was not configured' }
+          $installer = Get-ChildItem -Path 'release' -Filter '*.exe' -File |
+            Where-Object { $_.FullName -notmatch '[\\/]win[^\\/]*-unpacked[\\/]' } |
+            Select-Object -First 1
+          if (-not $installer) { throw 'no installer was found in release' }
+          & $env:SIGNTOOL_PATH sign /fd SHA256 /f $env:PFX_PATH /p $env:SIGN_PASSWORD /d 'CanScreenRecord Installer' "$($installer.FullName)"
+          Write-Output "signed $($installer.Name)"
+
+      - name: Verify Windows signatures
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $appExe = Get-ChildItem -Path "${{ matrix.arch == 'x64' && 'release/win-unpacked' || 'release/win-arm64-unpacked' }}" -Filter 'CanScreenRecord.exe' -Recurse | Select-Object -First 1
+          if (-not $appExe) { throw 'the packaged CanScreenRecord.exe was not found' }
+          $installer = Get-ChildItem -Path 'release' -Filter '*.exe' -File |
+            Where-Object { $_.FullName -notmatch '[\\/]win[^\\/]*-unpacked[\\/]' } |
+            Select-Object -First 1
+          if (-not $installer) { throw 'no installer was found in release' }
+          foreach ($file in @($appExe.FullName, $installer.FullName)) {
+            $signature = Get-AuthenticodeSignature $file
+            if (-not $signature.SignerCertificate) { throw "no code signature on ${file}: $($signature.Status)" }
+            Write-Output "verified $file signed by $($signature.SignerCertificate.Subject)"
+          }
+
+      - name: Smoke test packaged Windows paths
+        env:
+          PACKAGED_SMOKE_ARCH_TAGS: win32-${{ matrix.arch }}
+        run: npm run smoke:packaged-binaries
+
+      - name: Generate Windows artifact checksums
+        run: npm run checksums:release -- SHA256SUMS-windows-${{ matrix.arch }}.txt
+
+      - name: Attest Windows artifacts
+        uses: actions/attest@v4
+        with:
+          subject-checksums: release/SHA256SUMS-windows-${{ matrix.arch }}.txt
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}-release
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest*.yml
+            release/SHA256SUMS*.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  build-macos:
+    runs-on: ${{ matrix.runner }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            arch_tag: darwin-x64
+            runner: macos-15-intel
+          - arch: arm64
+            arch_tag: darwin-arm64
+            runner: macos-14
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install bundled FFmpeg binary
+        run: node scripts/install-ffmpeg-static.mjs
+
+      - name: Verify bundled FFmpeg binary
+        run: |
+          node -e "const fs=require('node:fs'); const ffmpeg=require('ffmpeg-static'); if (typeof ffmpeg !== 'string' || !fs.existsSync(ffmpeg)) { throw new Error('Bundled ffmpeg-static binary is missing: ' + ffmpeg); } console.log('Using bundled ffmpeg binary: ' + ffmpeg);"
+
+      - name: Install app dependencies
+        run: npx electron-builder install-app-deps
+
+      - name: Build macOS app
+        run: |
+          npm run build:platform-native-helpers
+          npx tsc
+          npx vite build
+          npx electron-builder --mac dir dmg zip --${{ matrix.arch }} --publish never -c.mac.identity=-
+
+      - name: Verify macOS bundle and DMG link
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          images=(release/*.dmg)
+          test "${#images[@]}" -eq 1
+          hdiutil verify "${images[0]}"
+          mount="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "${mount}" "${images[0]}" >/dev/null
+          test -L "${mount}/Applications"
+          app=("${mount}"/*.app)
+          test "${#app[@]}" -eq 1
+          codesign --verify --deep --strict --verbose=2 "${app[0]}"
+          signature="$(codesign --display --verbose=2 "${app[0]}" 2>&1 || true)"
+          printf '%s\n' "$signature"
+          if printf '%s' "$signature" | grep -q 'Signature=adhoc'; then
+            echo 'ad-hoc signature confirmed'
+          elif printf '%s' "$signature" | grep -q '^Authority='; then
+            echo 'developer signature confirmed'
+          else
+            echo 'the packaged macOS app carries no code signature' >&2
+            exit 1
+          fi
+          hdiutil detach "${mount}" >/dev/null
+
+      - name: Smoke test packaged macOS paths
+        env:
+          PACKAGED_SMOKE_ARCH_TAGS: ${{ matrix.arch_tag }}
+        run: npm run smoke:packaged-binaries
+
+      - name: Generate macOS artifact checksums
+        run: npm run checksums:release -- SHA256SUMS-macos-${{ matrix.arch }}.txt
+
+      - name: Attest macOS artifacts
+        uses: actions/attest@v4
+        with:
+          subject-checksums: release/SHA256SUMS-macos-${{ matrix.arch }}.txt
+
+      - name: Upload macOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}-release
+          path: |
+            release/**/*.dmg
+            release/**/*.zip
+            release/**/*.blockmap
+            release/latest-mac.yml
+            release/SHA256SUMS*.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install bundled FFmpeg binary
+        run: node scripts/install-ffmpeg-static.mjs
+
+      - name: Verify bundled FFmpeg binary
+        run: |
+          node -e "const fs=require('node:fs'); const ffmpeg=require('ffmpeg-static'); if (typeof ffmpeg !== 'string' || !fs.existsSync(ffmpeg)) { throw new Error('Bundled ffmpeg-static binary is missing: ' + ffmpeg); } console.log('Using bundled ffmpeg binary: ' + ffmpeg);"
+
+      - name: Install Linux native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxt-dev libxtst-dev libxkbfile-dev libxi-dev libxrandr-dev libxinerama-dev
+
+      - name: Remove stale uiohook build output
+        run: rm -rf node_modules/uiohook-napi/build
+
+      - name: Install app dependencies
+        run: npx electron-builder install-app-deps
+
+      - name: Build Linux app
+        run: |
+          npm run build:platform-native-helpers
+          npx tsc
+          npx vite build
+          npx electron-builder --linux dir AppImage --x64 --publish never
+
+      - name: Smoke test packaged Linux paths
+        run: npm run smoke:packaged-binaries
+
+      - name: Generate Linux artifact checksums
+        run: npm run checksums:release -- SHA256SUMS-linux.txt
+
+      - name: Attest Linux artifacts
+        uses: actions/attest@v4
+        with:
+          subject-checksums: release/SHA256SUMS-linux.txt
+
+      - name: Upload Linux build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-release
+          path: |
+            release/**/*.AppImage
+            release/**/*.blockmap
+            release/latest-linux.yml
+            release/SHA256SUMS*.txt
+          if-no-files-found: error
+          retention-days: 30
