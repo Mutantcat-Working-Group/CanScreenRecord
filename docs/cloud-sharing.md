@@ -1,6 +1,6 @@
-# Recordly cloud sharing
+# CanScreenRecord cloud sharing
 
-Recordly's **Export** menu offers downloading the current edit or **Create share link**. The Account button at the bottom of the left toolbar opens sign-in. Sharing renders an MP4 to a temporary file, uploads it to Recordly Share, finalizes its metadata, and removes the temporary file when the dialog closes.
+CanScreenRecord's **Export** menu offers downloading the current edit or **Create share link**. The Account button at the bottom of the left toolbar opens sign-in. Sharing renders an MP4 to a temporary file, uploads it to Recordly Share, finalizes its metadata, and removes the temporary file when the dialog closes.
 
 The desktop app defaults to the local development endpoint:
 
@@ -8,7 +8,7 @@ The desktop app defaults to the local development endpoint:
 http://localhost:8787/api/upload
 ```
 
-The endpoint is intentionally not user-configurable. All builds currently use the local service above. Production service integration is planned but is not selected by any build. Publishing requires the user's Recordly access token. No share API secret is exposed in the app.
+The endpoint is intentionally not user-configurable. All builds currently use the local service above. Production service integration is planned but is not selected by any build. Publishing requires the user's CanScreenRecord access token. No share API secret is exposed in the app.
 
 ## Publishing protocol
 

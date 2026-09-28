@@ -1,6 +1,6 @@
 # In-app announcements
 
-Recordly can show dismissible announcements in the editor as a popup, carousel slide, lightweight live notification, or header banner. Popups can contain images or video; notifications and banners are text-only with optional buttons.
+CanScreenRecord can show dismissible announcements in the editor as a popup, carousel slide, lightweight live notification, or header banner. Popups can contain images or video; notifications and banners are text-only with optional buttons.
 
 ## Remote announcements
 
@@ -13,9 +13,9 @@ Edit [`announcements.json`](../announcements.json) on the `main` branch to publi
 	},
 	"announcements": [
 		{
-			"id": "recordly-1.4-release",
-			"title": "A faster Recordly is here",
-			"body": "Exports are faster and cursor motion is smoother. Thanks for using Recordly!",
+			"id": "canscreenrecord-1.4-release",
+			"title": "A faster CanScreenRecord is here",
+			"body": "Exports are faster and cursor motion is smoother. Thanks for using CanScreenRecord!",
 			"presentation": "popup",
 			"audience": "editor",
 			"priority": 10,
@@ -34,16 +34,16 @@ Edit [`announcements.json`](../announcements.json) on the `main` branch to publi
 			"minVersion": "1.4.0",
 			"media": {
 				"type": "image",
-				"url": "https://example.com/recordly-1.4-banner.jpg",
-				"alt": "Recordly 1.4 feature preview"
+				"url": "https://example.com/canscreenrecord-1.4-banner.jpg",
+				"alt": "CanScreenRecord 1.4 feature preview"
 			},
 			"action": {
 				"label": "See what changed",
-				"url": "https://github.com/webadderallorg/Recordly/releases"
+				"url": "https://github.com/Mutantcat-Working-Group/CanScreenRecord/releases"
 			}
 		},
 		{
-			"id": "recordly-maintenance-notice",
+			"id": "canscreenrecord-maintenance-notice",
 			"title": "Quick service notice",
 			"body": "Cloud sharing will undergo brief maintenance tonight.",
 			"presentation": "notification",
@@ -54,7 +54,7 @@ Edit [`announcements.json`](../announcements.json) on the `main` branch to publi
 			"endsAt": "2026-09-06T00:00:00Z"
 		},
 		{
-			"id": "recordly-editor-banner",
+			"id": "canscreenrecord-editor-banner",
 			"title": "Try the new editor",
 			"body": "The redesigned timeline is now available.",
 			"presentation": "banner",

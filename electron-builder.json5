@@ -1,7 +1,7 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "dev.recordly.app",
+  "appId": "org.mutantcat.canscreenrecord",
   "electronUpdaterCompatibility": ">=2.16",
   "asar": true,
   "asarUnpack": [
@@ -10,10 +10,10 @@
     "node_modules/uiohook-napi/**",
     "electron/native/bin/**"
   ],
-  "productName": "Recordly",
+  "productName": "CanScreenRecord",
   "protocols": [
     {
-      "name": "Recordly authentication",
+      "name": "CanScreenRecord authentication",
       "schemes": ["recordly"]
     }
   ],
@@ -51,8 +51,8 @@
   "publish": [
     {
       "provider": "github",
-      "owner": "webadderall",
-      "repo": "Recordly",
+      "owner": "Mutantcat-Working-Group",
+      "repo": "CanScreenRecord",
       "tagNamePrefix": "v",
       "publishAutoUpdate": true
     }
@@ -75,25 +75,25 @@
     "icon": "icons/icons/mac/icon.icns",
     "artifactName": "${productName}-${arch}.${ext}",
     "extendInfo": {
-      "NSAudioCaptureUsageDescription": "Recordly needs audio capture permission to record system audio.",
-      "NSCameraUsageDescription": "Recordly needs camera access to record webcam video.",
-      "NSMicrophoneUsageDescription": "Recordly needs microphone access to record voice audio.",
+      "NSAudioCaptureUsageDescription": "CanScreenRecord needs audio capture permission to record system audio.",
+      "NSCameraUsageDescription": "CanScreenRecord needs camera access to record webcam video.",
+      "NSMicrophoneUsageDescription": "CanScreenRecord needs microphone access to record voice audio.",
       "NSCameraUseContinuityCameraDeviceType": true,
       "com.apple.security.device.audio-input": true,
       "CFBundleDocumentTypes": [
         {
-          "CFBundleTypeName": "Recordly Project",
+          "CFBundleTypeName": "CanScreenRecord Project",
           "CFBundleTypeRole": "Editor",
           "CFBundleTypeExtensions": ["recordly"],
           "CFBundleTypeIconFile": "icon.icns",
           "LSHandlerRank": "Owner",
-          "LSItemContentTypes": ["dev.recordly.app.project"]
+          "LSItemContentTypes": ["org.mutantcat.canscreenrecord.project"]
         }
       ],
       "UTExportedTypeDeclarations": [
         {
-          "UTTypeIdentifier": "dev.recordly.app.project",
-          "UTTypeDescription": "Recordly Project",
+          "UTTypeIdentifier": "org.mutantcat.canscreenrecord.project",
+          "UTTypeDescription": "CanScreenRecord Project",
           "UTTypeConformsTo": ["public.json"],
           "UTTypeTagSpecification": {
             "public.filename-extension": ["recordly"],
@@ -116,7 +116,7 @@
       "nsis"
     ],
     "icon": "icons/icons/win/icon.ico",
-    "executableName": "Recordly",
+    "executableName": "CanScreenRecord",
     "artifactName": "${productName}-windows-${arch}.${ext}"
   },
   "nsis": {
@@ -128,6 +128,6 @@
     "shortcutName": "能录屏",
     "installerLanguages": ["zh_CN"],
     "unicode": true,
-    "include": "installer.nsh"
+    "include": "build/installer.nsh"
   }
 }

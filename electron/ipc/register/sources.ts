@@ -165,7 +165,7 @@ export function registerSourceHandlers({
 		const ownWindowNames = new Set(
 			[
 				app.getName(),
-				"Recordly",
+				"CanScreenRecord",
 				...BrowserWindow.getAllWindows().flatMap((win) => {
 					const title = win.getTitle().trim();
 					return title ? [title] : [];
@@ -233,7 +233,11 @@ export function registerSourceHandlers({
 						return true;
 					}
 
-					if (ALLOW_RECORDLY_WINDOW_CAPTURE && normalizedName.includes("recordly")) {
+					if (
+						ALLOW_RECORDLY_WINDOW_CAPTURE &&
+						(normalizedName.includes("recordly") ||
+							normalizedName.includes("canscreenrecord"))
+					) {
 						return true;
 					}
 
@@ -291,7 +295,9 @@ export function registerSourceHandlers({
 					if (
 						ALLOW_RECORDLY_WINDOW_CAPTURE &&
 						(normalizedAppName === "recordly" ||
-							normalizedWindowName?.includes("recordly"))
+							normalizedAppName === "canscreenrecord" ||
+							normalizedWindowName?.includes("recordly") ||
+							normalizedWindowName?.includes("canscreenrecord"))
 					) {
 						return true;
 					}
@@ -350,7 +356,11 @@ export function registerSourceHandlers({
 						return true;
 					}
 
-					if (ALLOW_RECORDLY_WINDOW_CAPTURE && normalizedName.includes("recordly")) {
+					if (
+						ALLOW_RECORDLY_WINDOW_CAPTURE &&
+						(normalizedName.includes("recordly") ||
+							normalizedName.includes("canscreenrecord"))
+					) {
 						return true;
 					}
 

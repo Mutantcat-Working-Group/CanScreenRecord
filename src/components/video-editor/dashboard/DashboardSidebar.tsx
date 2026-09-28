@@ -5,6 +5,7 @@ import { FolderRow } from "./FolderRow";
 import { Cloud, File, GearSix, House, Plus, UserCircle } from "@/components/ui/icons";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/contexts/I18nContext";
 
 import type { DashboardProps } from "./types";
 
@@ -37,6 +38,8 @@ export function DashboardSidebar({
 	| "onSignIn"
 	| "accountLabel"
 >) {
+	const { t } = useI18n();
+
 	return (
 		<>
 			<aside
@@ -49,7 +52,9 @@ export function DashboardSidebar({
 						alt=""
 						className="size-7 rounded-lg"
 					/>
-					<span className="text-[15px] font-semibold tracking-tight">Recordly</span>
+					<span className="text-[15px] font-semibold tracking-tight">
+						{t("app.name", "CanScreenRecord")}
+					</span>
 				</div>
 				<RecordNewButton busy={busy} run={run} className="mb-5 w-full" />
 				<nav className="space-y-1">

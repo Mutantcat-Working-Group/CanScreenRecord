@@ -5,8 +5,8 @@ import path from "node:path";
 const projectRoot = process.cwd();
 const releaseRoot = path.join(projectRoot, "release");
 const packageJson = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8"));
-const productName = packageJson.productName ?? packageJson.name ?? "Recordly";
-const packageName = packageJson.name ?? "recordly";
+const productName = packageJson.productName ?? packageJson.name ?? "CanScreenRecord";
+const packageName = packageJson.name ?? "canscreenrecord";
 
 function relativePath(filePath) {
 	return path.relative(projectRoot, filePath).replaceAll("\\", "/");
@@ -111,7 +111,7 @@ function assertPackagedAppExecutable(unpackedRoot) {
 			? [
 					path.join(appDir, `${productName}.exe`),
 					path.join(appDir, `${packageName}.exe`),
-					path.join(appDir, "Recordly.exe"),
+					path.join(appDir, "CanScreenRecord.exe"),
 				]
 			: [
 					path.join(appDir, packageName),

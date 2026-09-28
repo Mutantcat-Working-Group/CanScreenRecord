@@ -1,15 +1,15 @@
 {
-	"name": "recordly",
-	"productName": "Recordly",
+	"name": "canscreenrecord",
+	"productName": "CanScreenRecord",
 	"description": "A free, creator-focused screen recorder with auto-zoom, cursor effects, backgrounds, annotations, and more - built for polished videos out of the box.",
-	"author": "webadderall",
-	"homepage": "https://github.com/webadderallorg/Recordly",
+	"author": "Mutantcat-Working-Group",
+	"homepage": "https://github.com/Mutantcat-Working-Group/CanScreenRecord",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/webadderallorg/Recordly.git"
+		"url": "https://github.com/Mutantcat-Working-Group/CanScreenRecord.git"
 	},
 	"bugs": {
-		"url": "https://github.com/webadderallorg/Recordly/issues"
+		"url": "https://github.com/Mutantcat-Working-Group/CanScreenRecord/issues"
 	},
 	"private": true,
 	"version": "1.4.0",
