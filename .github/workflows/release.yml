@@ -516,6 +516,7 @@ jobs:
       - name: Build Windows ${{ matrix.arch }}
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           npm run build:platform-native-helpers
           npx tsc
           npx vite build

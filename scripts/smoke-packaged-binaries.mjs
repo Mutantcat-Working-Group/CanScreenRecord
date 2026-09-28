@@ -172,15 +172,17 @@ function getExpectedNativeHelperFiles(archTag) {
 				executable: true,
 			},
 			{ name: "helpers-manifest.json", label: "Windows helper manifest" },
-			{ name: "whisper-cli.exe", label: "Whisper CLI runtime", executable: true },
-			{ name: "whisper-runtime.json", label: "Whisper runtime manifest" },
 		];
 		if (archTag === "win32-x64") {
-			helpers.push({
-				name: "recordly-nvidia-cuda-compositor.exe",
-				label: "NVIDIA CUDA compositor helper",
-				executable: true,
-			});
+			helpers.push(
+				{
+					name: "recordly-nvidia-cuda-compositor.exe",
+					label: "NVIDIA CUDA compositor helper",
+					executable: true,
+				},
+				{ name: "whisper-cli.exe", label: "Whisper CLI runtime", executable: true },
+				{ name: "whisper-runtime.json", label: "Whisper runtime manifest" },
+			);
 		}
 		return helpers;
 	}
@@ -250,6 +252,12 @@ function verifyNativeHelpers(unpackedRoot) {
 		const archDir = path.join(nativeBinRoot, archTag);
 		if (!existsSync(archDir)) {
 			fail(`native helper arch directory is missing at ${relativePath(archDir)}`);
+		}
+
+		if (archTag === "win32-arm64") {
+			console.log(
+				"[packaged-smoke] Skipping packaged Whisper runtime check: whisper.cpp does not publish a win32-arm64 binary and auto-captions fall back to a user-selected whisper-cli.",
+			);
 		}
 
 		const expectedFiles = getExpectedNativeHelperFiles(archTag);

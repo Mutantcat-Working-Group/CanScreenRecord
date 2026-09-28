@@ -437,8 +437,23 @@ async function stageRuntimeArtifacts(target, candidateDir, runtimeEntries) {
 	);
 }
 
+function isUnsupportedTarget(target) {
+	return target.platform === "win32" && target.arch === "arm64";
+}
+
 async function main() {
-	const targets = getTargetConfigs();
+	const requestedTargets = getTargetConfigs();
+	const targets = requestedTargets.filter((target) => !isUnsupportedTarget(target));
+
+	for (const target of requestedTargets.filter(isUnsupportedTarget)) {
+		console.log(
+			`[build-whisper-runtime] Skipping ${target.archTag}: whisper.cpp does not publish a Windows arm64 runtime and the ggml ARM backend does not support MSVC. Auto-captions fall back to a user-selected whisper-cli.`,
+		);
+	}
+
+	if (targets.length === 0) {
+		return;
+	}
 
 	// Official whisper.cpp releases include a signed, portable Windows x64
 	// runtime. Prefer it so developers and packaged builds do not require a full
