@@ -72,7 +72,7 @@
         "arch": ["x64", "arm64"]
       }
     ],
-    "icon": "icons/icons/mac/icon.icns",
+    "icon": "icon.png",
     "artifactName": "${productName}-${arch}.${ext}",
     "extendInfo": {
       "NSAudioCaptureUsageDescription": "CanScreenRecord needs audio capture permission to record system audio.",
@@ -107,7 +107,7 @@
     "target": [
       "AppImage"
     ],
-    "icon": "icons/icons/png",
+    "icon": "icon.png",
     "artifactName": "${productName}-linux-x64.${ext}",
     "category": "AudioVideo"
   },
@@ -115,7 +115,7 @@
     "target": [
       "nsis"
     ],
-    "icon": "icons/icons/win/icon.ico",
+    "icon": "icon.png",
     "executableName": "CanScreenRecord",
     "artifactName": "${productName}-windows-${arch}.${ext}"
   },

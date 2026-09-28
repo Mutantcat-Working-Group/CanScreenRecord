@@ -4,7 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "*.md"
+      - "EXTENSIONS.md"
+      - "RELEASING.md"
+      - "THIRD_PARTY_NOTICES.md"
+      - "TRANSLATION_GUIDE.md"
+      - "CLAUDE.md"
 
 permissions:
   contents: write
@@ -29,7 +33,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           source: en
           lang: zh
-          files: "*.md;README.md;TRANSLATION_GUIDE.md;CLAUDE.md"
+          files: "EXTENSIONS.md;RELEASING.md;THIRD_PARTY_NOTICES.md;TRANSLATION_GUIDE.md;CLAUDE.md"
           filename_template: "{{ base }}.zh-CN{{ ext }}"
 
       - uses: stefanzweifel/git-auto-commit-action@v5
