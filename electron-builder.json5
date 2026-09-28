@@ -121,9 +121,13 @@
   },
   "nsis": {
     "oneClick": false,
+    "perMachine": true,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Recordly"
+    "shortcutName": "能录屏",
+    "installerLanguages": ["zh_CN"],
+    "unicode": true,
+    "include": "installer.nsh"
   }
 }
