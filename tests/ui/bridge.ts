@@ -44,7 +44,7 @@ export async function installDesktopBridge(page: Page, videoFixture = "preview.m
 					window.addEventListener("test-window-chrome", listener);
 					return () => window.removeEventListener("test-window-chrome", listener);
 				},
-				getAppVersion: async () => "1.0.20260928",
+				getAppVersion: async () => "1.0.20260930",
 				getProjectPreview: async () => ({ success: false, error: "Preview unavailable" }),
 				getAnnouncements: async () => ({ success: true, announcements: [] }),
 				loadCurrentProjectFile: async () => ({ success: false }),
@@ -140,7 +140,7 @@ export async function installDesktopBridge(page: Page, videoFixture = "preview.m
 					return { success: true };
 				},
 				getCurrentUpdateToastPayload: async () => ({
-					version: "1.0.20260928",
+					version: "1.0.20260930",
 				detail: "A new version of CanScreenRecord is available.",
 					phase: "available",
 					delayMs: 60000,
